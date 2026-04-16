@@ -61,6 +61,57 @@ The lander starts near the top of the screen with random initial motion, so the 
 - move toward the landing pad
 - land softly without crashing
 
+## Possible Algorithms
+
+The assignment slides state that **all algorithms are acceptable**, which means the project is not limited to only one RL method. However, because this repository uses `LunarLander-v3` with a **discrete action space**, some algorithms are a much better fit than others.
+
+### Algorithms that can be used
+
+| Algorithm | Type | Fits `LunarLander-v3` well? | Notes |
+| --- | --- | --- | --- |
+| Q-Learning | Value-based | Yes, with discretization | Simple idea, but the continuous state space makes pure tabular use difficult. |
+| SARSA | Value-based | Yes, with discretization | Similar to Q-Learning, but learns on-policy. |
+| Expected SARSA | Value-based | Yes, with discretization | A smoother extension of SARSA. |
+| Monte Carlo Control | Value-based | Possible | Can be used, but often less practical for this task than temporal-difference methods. |
+| DQN | Deep value-based | Yes | The most natural choice for this starter code. |
+| Double DQN | Deep value-based | Yes | Improves DQN by reducing overestimation bias. |
+| Dueling DQN | Deep value-based | Yes | Often improves value estimation by separating state value and advantage. |
+| Prioritized Replay DQN | Deep value-based | Yes | Extends DQN by sampling more useful experiences more often. |
+| n-step DQN | Deep value-based | Yes | Can improve learning speed by using multi-step returns. |
+| Rainbow-style DQN | Deep value-based | Yes | Combines several DQN improvements, but is more complex to implement. |
+| REINFORCE | Policy-based | Yes | Valid, but usually less stable and sample-efficient than DQN-based methods here. |
+| Actor-Critic | Policy/value hybrid | Yes | A valid alternative to DQN. |
+| A2C | Policy/value hybrid | Yes | Works with discrete actions and is commonly used. |
+| A3C | Policy/value hybrid | Yes | Valid, but more complex because of asynchronous training. |
+| PPO | Policy/value hybrid | Yes | Strong and popular algorithm for discrete control tasks. |
+
+### Best choices for this assignment
+
+If the goal is to stay close to the provided starter code, the most practical choices are:
+
+- `DQN`
+- `Double DQN`
+- `Dueling DQN`
+
+These fit the assignment requirements especially well because the slides explicitly mention ideas such as:
+
+- neural-network Q-function approximation
+- experience replay
+- target network updates
+- epsilon-greedy exploration
+
+Those are all core parts of the DQN family.
+
+### Less suitable algorithms
+
+Some RL algorithms are usually designed for **continuous action spaces**, so they are not a direct match for `LunarLander-v3`:
+
+- `DDPG`
+- `TD3`
+- `SAC`
+
+These are better suited to `LunarLanderContinuous-v3`, not the discrete version used in this assignment.
+
 ## What `main.py` Does
 
 `main.py` is the main starter file for the assignment. Right now it is a template and still contains several `TODO` sections.
