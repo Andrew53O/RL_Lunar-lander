@@ -36,6 +36,8 @@ def run_random_baseline(num_episodes: int = NUM_EPISODES) -> dict:
         episode_length = 0
 
         while not done:
+            # Random baseline policy:
+            # select one valid action uniformly from the environment's action space.
             action = env.action_space.sample()
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
@@ -47,6 +49,7 @@ def run_random_baseline(num_episodes: int = NUM_EPISODES) -> dict:
         episode_rewards.append(episode_reward)
         episode_lengths.append(episode_length)
 
+        # For Part A, treat a very strong total episode reward as a "success".
         if episode_reward >= SUCCESS_REWARD_THRESHOLD:
             successes += 1
 
@@ -70,9 +73,12 @@ def run_random_baseline(num_episodes: int = NUM_EPISODES) -> dict:
         "success_rate": successes / num_episodes,
     }
     return stats
+
+
 def main() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    # Run the random baseline first so we can measure how bad uninformed behavior is.
     stats = run_random_baseline()
     print()
     print_stats(stats)
@@ -84,6 +90,7 @@ def main() -> None:
     record_episodes(
         num_episodes=NUM_RECORD_EPISODES,
         out_dir=GIF_DIR,
+        # This policy ignores the state and picks one of the 4 actions at random.
         policy_fn=lambda state: np.random.randint(0, ACTION_DIM),
     )
 
