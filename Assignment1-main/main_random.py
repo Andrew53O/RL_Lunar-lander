@@ -7,8 +7,8 @@ from utils import plot_baseline, print_stats, record_episodes
 
 
 ENV_NAME = "LunarLander-v3"
-NUM_EPISODES = 100
-NUM_RECORD_EPISODES = 3
+NUM_EPISODES = 100 # total running episode
+NUM_RECORD_EPISODES = 5  # episode that we want to record 
 OUTPUT_DIR = "outputs/part_a"
 GIF_DIR = os.path.join(OUTPUT_DIR, "gifs")
 PLOT_PATH = os.path.join(OUTPUT_DIR, "baseline_stats.png")
@@ -26,7 +26,7 @@ def run_random_baseline(num_episodes: int = NUM_EPISODES) -> dict:
     print(f"Action dimension: {action_dim}")
 
     episode_rewards = []
-    episode_lengths = []
+    episode_lengths = [] # how many steps it survived before crashing 
     successes = 0
 
     for episode in range(1, num_episodes + 1):
