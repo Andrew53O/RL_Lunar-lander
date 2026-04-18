@@ -1,119 +1,55 @@
-# CSE727 Assignment 1: LunarLander
+# Folder Structure Guide
 
-This repository contains my working solution and experiment files for `LunarLander-v3` using Gymnasium.
+This folder only includes a smaller submission set of trained model weights, plot figures, and GIF files.
 
-The project currently includes:
+For the complete project version, please visit:
 
-- a Part A random baseline runner
-- a Vanilla DQN trainer in `main.py`
-- a Double DQN trainer in `main_ddqn.py`
-- a multiprocessing launcher for running many experiment commands
-- notes and report files for Parts A to D
+- https://github.com/Andrew53O/RL_Lunar-lander
 
-According to the assignment brief, the environment is considered solved when the average reward over `100` consecutive training episodes is greater than `200`.
-
-## Environment Summary
-
-`LunarLander-v3` has:
-
-- observation space: `8` values
-- action space: `4` discrete actions
-  - `0`: do nothing
-  - `1`: fire left orientation engine
-  - `2`: fire main engine
-  - `3`: fire right orientation engine
-
-## Current Important Files
-
-### Training and evaluation
+This README only describes these parts of the assignment folder:
 
 - `main.py`
-  - current Vanilla DQN training script
-  - supports seeded and unseeded runs
-  - supports CLI hyperparameter overrides
-  - writes outputs to `outputs/part_b/`
-
-- `main_ddqn.py`
-  - Double DQN version of the trainer
-  - same overall structure as `main.py`
-  - writes outputs to `outputs/part_ddqn/`
-
 - `main_random.py`
-  - Part A random baseline script
-  - runs `100` random-policy episodes
-  - saves baseline plots and GIFs under `outputs/part_a/`
+- `outputs/`
 
-- `main_multiprocessing.py`
-  - launcher for running multiple experiment commands in parallel
-  - reads commands from `COMMANDS.md`
-  - runs unchecked jobs by default
-  - writes launcher logs to `outputs/launcher_logs/`
+It intentionally does **not** document other files here, and it also skips:
 
-### Utilities
+- `outputs/launcher_logs/`
+- `outputs/part_ddqn/`
 
-- `utils.py`
-  - helper functions for:
-    - plotting baseline statistics
-    - plotting training curves
-    - printing evaluation statistics
-    - saving checkpoints
-    - recording GIFs
+## `main.py`
 
-- `requirements.txt`
-  - Python dependencies for the project
+`main.py` is the main Vanilla DQN training script for `LunarLander-v3`.
 
-### Experiment tracking and writing
+What it does:
 
-- `stats.md`
-  - global run history
-  - records algorithm, seed, timing, solved episode, evaluation reward, and selected hyperparameters
+- creates the environment
+- builds the Q-network and target network
+- uses a replay buffer
+- trains with epsilon-greedy exploration
+- saves checkpoints during training
+- evaluates the final greedy policy for `100` episodes
+- writes training outputs into `outputs/part_b/`
+- appends run results into `stats.md`
 
-- `COMMANDS.md`
-  - checklist of seeded experiment commands
-  - each command has its own copyable code block
+Main default hyperparameters in this file:
 
-- `REPORT.md`
-  - current report draft focused on the seeded `main.py` hyperparameter experiments
+- `LEARNING_RATE = 5e-4`
+- `GAMMA = 0.99`
+- `EPSILON_START = 1.0`
+- `EPSILON_END = 0.01`
+- `EPSILON_DECAY = 0.995`
+- `BATCH_SIZE = 64`
+- `BUFFER_SIZE = 10000`
+- `TARGET_UPDATE_FREQ = 10`
+- `NUM_EPISODES = 650`
+- `CHECKPOINT_FREQ = 50`
+- `EVAL_EPISODES = 100`
+- `HIDDEN_DIM = 128`
+- `SUCCESS_REWARD_THRESHOLD = 200.0`
+- `MAX_STEPS_PER_EPISODE = 500`
 
-- `QUESTION.md`
-  - Q&A notes collected while working on the assignment
-
-- `PartA.md`, `PartB.md`, `PartC.md`, `PartD.md`
-  - step-by-step working notes for each assignment part
-
-
-### Assignment brief
-
-- `assignment1_lunar_lander_arl_slides.pdf`
-  - the assignment PDF/slides
-
-## Current `main.py` Configuration
-
-These are the default hyperparameters currently defined in `main.py`:
-
-| Hyperparameter | Value |
-| --- | --- |
-| `LEARNING_RATE` | `5e-4` |
-| `GAMMA` | `0.99` |
-| `EPSILON_START` | `1.0` |
-| `EPSILON_END` | `0.01` |
-| `EPSILON_DECAY` | `0.995` |
-| `BATCH_SIZE` | `64` |
-| `BUFFER_SIZE` | `10000` |
-| `TARGET_UPDATE_FREQ` | `10` |
-| `NUM_EPISODES` | `650` |
-| `CHECKPOINT_FREQ` | `50` |
-| `EVAL_EPISODES` | `100` |
-| `HIDDEN_DIM` | `128` |
-| `SUCCESS_REWARD_THRESHOLD` | `200.0` |
-| `MAX_STEPS_PER_EPISODE` | `500` |
-
-The Q-network structure in `main.py` is:
-
-- `8 -> 128 -> 128 -> 4`
-- `ReLU` activations
-
-The script currently supports these CLI overrides:
+Important CLI overrides supported by `main.py`:
 
 - `--device`
 - `--run-name`
@@ -125,100 +61,231 @@ The script currently supports these CLI overrides:
 - `--max-steps-per-episode`
 - `--seed`
 
-## Current `main_ddqn.py` Configuration
+The naming of many run folders inside `outputs/part_b/` comes directly from these CLI arguments.
 
-`main_ddqn.py` currently mirrors the same default hyperparameters as `main.py`, but changes the training target to Double DQN:
+## `main_random.py`
 
-- the online network selects the best next action
-- the target network evaluates that selected action
+`main_random.py` is the Part A random baseline script.
 
-This file is intended for comparison against the Vanilla DQN baseline.
+What it does:
 
-## Output Structure
+- runs `100` random-policy episodes
+- computes mean reward, standard deviation, min/max reward, mean episode length, and success rate
+- saves the baseline plot into `outputs/part_a/`
+- records `5` random-policy GIFs into `outputs/part_a/gifs/`
 
-### Part A outputs
+This file is used as the non-learning reference point before the DQN experiments.
 
-- `outputs/part_a/baseline_stats.png`
-- `outputs/part_a/gifs/`
+## `outputs/`
 
-### Vanilla DQN outputs
+The `outputs/` folder stores generated results from training, plotting, and recording.
 
-- `outputs/part_b/<run_name>/training_curves.png`
-- `outputs/part_b/<run_name>/checkpoints/`
-- `outputs/part_b/<run_name>/run_summary.md`
+This README documents:
 
-### Double DQN outputs
+- `outputs/part_a/`
+- `outputs/part_b/`
+- `outputs/report_figures/`
+- `outputs/report_gifs/`
 
-- `outputs/part_ddqn/<run_name>/training_curves.png`
-- `outputs/part_ddqn/<run_name>/checkpoints/`
-- `outputs/part_ddqn/<run_name>/run_summary.md`
-
-### Launcher outputs
+It does **not** document:
 
 - `outputs/launcher_logs/`
+- `outputs/part_ddqn/`
 
-## How to Run
+---
 
-Activate the virtual environment first if needed.
+## `outputs/part_a/`
 
-Example:
+This folder contains the random baseline outputs from `main_random.py`.
 
-```bash
-source ../myenv/bin/activate
-```
+Contents:
 
-### Part A random baseline
+- `baseline_stats.png`
+  - the plot created from the random baseline statistics
 
-```bash
-python main_random.py
-```
+- `gifs/`
+  - the recorded random-policy GIFs for Part A
 
-### Vanilla DQN baseline run
+---
 
-```bash
-python main.py --device cpu --run-name baseline_seed101 --seed 101
-```
+## `outputs/part_b/`
 
-### Vanilla DQN hyperparameter override example
+This folder contains the Vanilla DQN experiment runs from `main.py`.
 
-```bash
-python main.py --device cpu --run-name eps993_seed101 --epsilon-decay 0.993 --seed 101
-```
+Each run folder usually contains:
 
-### Double DQN baseline run
+- `checkpoints/`
+  - saved model checkpoints such as `dqn_episode_100.pt` and `dqn_final.pt`
 
-```bash
-python main_ddqn.py --device cpu --run-name ddqn_seed101 --seed 101
-```
+- `training_curves.png`
+  - the 2x2 training summary plot produced by `plot_training_curves(...)`
 
-### Multiprocessing experiment launcher
+- `run_summary.md`
+  - a short markdown summary of:
+    - algorithm
+    - seed
+    - device
+    - training episodes
+    - evaluation episodes
+    - solved episode
+    - hyperparameters
+    - evaluation statistics
 
-```bash
-python main_multiprocessing.py --max-workers 2
-```
+For the smaller submission-ready set, some selected run folders also contain renamed files such as:
 
-Useful launcher options:
+- `v_base_s101_training_curves.png`
+- `v_base_s101_dqn_episode_650.pt`
 
-```bash
-python main_multiprocessing.py --dry-run
-python main_multiprocessing.py --max-workers 2
-python main_multiprocessing.py --run-names v_lr2p5e4_s101 v_lr2p5e4_s202
-```
+These renamed files are easier to identify when only a few trained weights and plots are being submitted.
 
-## Current Experiment Workflow
+### Naming pattern of seeded run folders
 
-The current controlled-comparison workflow is:
+Many folders follow this style:
 
-1. define seeded commands in `COMMANDS.md`
-2. run them either manually or with `main_multiprocessing.py`
-3. let each run append to `stats.md`
-4. inspect each run folder’s `run_summary.md`
-5. compare seeded results in `REPORT.md`
+- `v_<experiment>_s<seed>`
 
-Older runs in `stats.md` marked with `Seed = random` were exploratory runs from before fixed seed support was added.
+Where:
 
-## Notes
+- `v` means Vanilla DQN
+- the middle part describes which hyperparameter changed
+- `s101`, `s202`, or `s303` means the seed value
 
-- `main.py` is now the primary script for the assignment experiments.
-- `REPORT.md` currently focuses only on the seeded Vanilla DQN hyperparameter experiments.
-- `main_multiprocessing.py` improves convenience, but actual speedup still depends on how many CPUs WSL can access.
+Examples:
+
+- `v_base_s101`
+  - Vanilla DQN baseline setting with seed `101`
+
+- `v_base_s202`
+  - Vanilla DQN baseline setting with seed `202`
+
+- `v_base_s303`
+  - Vanilla DQN baseline setting with seed `303`
+
+- `v_eps993_s101`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.993` with seed `101`
+
+- `v_eps993_s202`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.993` with seed `202`
+
+- `v_eps993_s303`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.993` with seed `303`
+
+- `v_eps997_s101`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.997` with seed `101`
+
+- `v_eps997_s202`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.997` with seed `202`
+
+- `v_eps997_s303`
+  - Vanilla DQN run where `EPSILON_DECAY` was changed to `0.997` with seed `303`
+
+- `v_target5_s101`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `5` with seed `101`
+
+- `v_target5_s202`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `5` with seed `202`
+
+- `v_target5_s303`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `5` with seed `303`
+
+- `v_target20_s101`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `20` with seed `101`
+
+- `v_target20_s202`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `20` with seed `202`
+
+- `v_target20_s303`
+  - Vanilla DQN run where `TARGET_UPDATE_FREQ` was changed to `20` with seed `303`
+
+- `v_lr2p5e4_s101`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.00025` with seed `101`
+
+- `v_lr2p5e4_s202`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.00025` with seed `202`
+
+- `v_lr2p5e4_s303`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.00025` with seed `303`
+
+- `v_lr1e3_s101`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.001` with seed `101`
+
+- `v_lr1e3_s202`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.001` with seed `202`
+
+- `v_lr1e3_s303`
+  - Vanilla DQN run where `LEARNING_RATE` was changed to `0.001` with seed `303`
+
+### `outputs/part_b/1.uncontrolable/`
+
+This folder stores the earlier uncontrolled experiments from before the fixed-seed comparison workflow was finalized.
+
+These runs are useful as history, but they are not the main controlled experiment set used in the final seeded comparison.
+
+Inside it are folders such as:
+
+- `baseline`, `baseline2`, `baseline3`
+  - earlier baseline runs without the later fixed-seed structure
+
+- `eps993`, `eps997`
+  - earlier epsilon-decay experiments
+
+- `target5`, `target5-2`, `target5-3`, `target20`
+  - earlier target-update experiments
+
+- `lr2p5e4`, `lr1e3`
+  - earlier learning-rate experiments
+
+- `run1`, `run2`
+  - older automatically named training runs from before the later explicit naming scheme
+
+---
+
+## `outputs/report_figures/`
+
+This folder contains the final report-ready comparison figures.
+
+Current files:
+
+- `epsilon_decay_comparison.png`
+  - compares final evaluation performance for `EPSILON_DECAY = 0.993`, `0.995`, and `0.997`
+
+- `epsilon_schedule_curves.png`
+  - shows the exploration-probability schedules for `0.993`, `0.995`, and `0.997`
+
+- `target_update_comparison.png`
+  - compares final evaluation performance for `TARGET_UPDATE_FREQ = 5`, `10`, and `20`
+
+- `learning_rate_comparison.png`
+  - compares final evaluation performance for `LEARNING_RATE = 0.00025`, `0.0005`, and `0.001`
+
+These images were created for use in the report and are based on the seeded Vanilla DQN runs.
+
+---
+
+## `outputs/report_gifs/`
+
+This folder contains the selected GIFs for the report.
+
+Current files:
+
+- `good_1_epsilon_decay_0.993.gif`
+  - a good example from the `EPSILON_DECAY = 0.993` setting
+
+- `good_2_target_update_5.gif`
+  - a good example from the `TARGET_UPDATE_FREQ = 5` setting
+
+- `normal_1_baseline.gif`
+  - a normal baseline example
+
+- `bad_1_epsilon_decay_0.997.gif`
+  - a weak example from the `EPSILON_DECAY = 0.997` setting
+
+- `bad_2_learning_rate_0.001.gif`
+  - a weak example from the `LEARNING_RATE = 0.001` setting
+
+- `selection_summary.md`
+  - a summary file that lists:
+    - category
+    - source run
+    - reward
+    - GIF filename
