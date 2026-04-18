@@ -173,6 +173,7 @@ def format_duration(seconds: float) -> str:
 
 def append_run_stats(
     stats_path: str,
+    run_name: str,
     algorithm_name: str,
     num_episodes: int,
     eval_episodes: int,
@@ -181,16 +182,18 @@ def append_run_stats(
     elapsed_seconds: float,
     solved_at,
     eval_mean_reward: float,
+    hyperparameters: dict,
 ) -> None:
     if not os.path.exists(stats_path):
         with open(stats_path, "w", encoding="utf-8") as f:
             f.write("# Run Stats\n\n")
             f.write(
-                "| Run Time | Algorithm | Train Episodes | Eval Episodes | "
-                "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward |\n"
+                "| Run Time | Run | Algorithm | Train Episodes | Eval Episodes | "
+                "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward | "
+                "LR | Epsilon Decay | Target Update |\n"
             )
             f.write(
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
             )
 
     solved_value = solved_at if solved_at is not None else "Not solved"
@@ -199,9 +202,11 @@ def append_run_stats(
 
     with open(stats_path, "a", encoding="utf-8") as f:
         f.write(
-            f"| {run_time} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
+            f"| {run_time} | {run_name} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
             f"{requested_device} | {actual_device} | {duration_text} | "
-            f"{solved_value} | {eval_mean_reward:.2f} |\n"
+            f"{solved_value} | {eval_mean_reward:.2f} | "
+            f"{hyperparameters['learning_rate']} | {hyperparameters['epsilon_decay']} | "
+            f"{hyperparameters['target_update_freq']} |\n"
         )
 
 
@@ -220,14 +225,75 @@ def get_next_run_dir(base_output_dir: str) -> str:
     return os.path.join(base_output_dir, f"run{next_run_number}")
 
 
+def write_run_summary(
+    run_dir: str,
+    run_name: str,
+    algorithm_name: str,
+    requested_device: str,
+    actual_device: str,
+    elapsed_seconds: float,
+    num_episodes: int,
+    eval_episodes: int,
+    solved_at,
+    hyperparameters: dict,
+    eval_stats: dict,
+) -> None:
+    summary_path = os.path.join(run_dir, "run_summary.md")
+    solved_value = solved_at if solved_at is not None else "Not solved"
+
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write(f"# {run_name} Summary\n\n")
+        f.write("## Run Info\n\n")
+        f.write(f"- Algorithm: {algorithm_name}\n")
+        f.write(f"- Requested device: {requested_device}\n")
+        f.write(f"- Actual device: {actual_device}\n")
+        f.write(f"- Train episodes: {num_episodes}\n")
+        f.write(f"- Evaluation episodes: {eval_episodes}\n")
+        f.write(f"- Duration: {format_duration(elapsed_seconds)}\n")
+        f.write(f"- Solved at: {solved_value}\n\n")
+
+        f.write("## Hyperparameters\n\n")
+        f.write("| Parameter | Value |\n")
+        f.write("| --- | --- |\n")
+        for key, value in hyperparameters.items():
+            f.write(f"| {key} | {value} |\n")
+
+        f.write("\n## Evaluation Stats\n\n")
+        f.write("| Metric | Value |\n")
+        f.write("| --- | --- |\n")
+        f.write(f"| mean_reward | {eval_stats['mean_reward']:.2f} |\n")
+        f.write(f"| std_reward | {eval_stats['std_reward']:.2f} |\n")
+        f.write(f"| min_reward | {eval_stats['min_reward']:.2f} |\n")
+        f.write(f"| max_reward | {eval_stats['max_reward']:.2f} |\n")
+        f.write(f"| mean_length | {eval_stats['mean_length']:.1f} |\n")
+        f.write(f"| success_rate | {eval_stats['success_rate'] * 100:.1f}% |\n")
+
+
 OUTPUT_DIR = get_next_run_dir(BASE_OUTPUT_DIR)
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
+RUN_NAME = os.path.basename(OUTPUT_DIR)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 agent = DQNAgent(state_dim, action_dim)
 run_start_time = time.perf_counter()
+
+run_hyperparameters = {
+    "learning_rate": LEARNING_RATE,
+    "gamma": GAMMA,
+    "epsilon_start": EPSILON_START,
+    "epsilon_end": EPSILON_END,
+    "epsilon_decay": EPSILON_DECAY,
+    "batch_size": BATCH_SIZE,
+    "buffer_size": BUFFER_SIZE,
+    "target_update_freq": TARGET_UPDATE_FREQ,
+    "num_episodes": NUM_EPISODES,
+    "eval_episodes": EVAL_EPISODES,
+    "hidden_dim": HIDDEN_DIM,
+    "success_reward_threshold": SUCCESS_REWARD_THRESHOLD,
+    "max_steps_per_episode": MAX_STEPS_PER_EPISODE,
+}
 
 # Training loop
 num_episodes = NUM_EPISODES
@@ -357,6 +423,7 @@ print(f"Final checkpoint saved to: {final_checkpoint}")
 elapsed_seconds = time.perf_counter() - run_start_time
 append_run_stats(
     stats_path=STATS_PATH,
+    run_name=RUN_NAME,
     algorithm_name=ALGORITHM_NAME,
     num_episodes=num_episodes,
     eval_episodes=EVAL_EPISODES,
@@ -365,6 +432,20 @@ append_run_stats(
     elapsed_seconds=elapsed_seconds,
     solved_at=solved_at,
     eval_mean_reward=eval_stats["mean_reward"],
+    hyperparameters=run_hyperparameters,
+)
+write_run_summary(
+    run_dir=OUTPUT_DIR,
+    run_name=RUN_NAME,
+    algorithm_name=ALGORITHM_NAME,
+    requested_device=args.device,
+    actual_device=str(DEVICE),
+    elapsed_seconds=elapsed_seconds,
+    num_episodes=num_episodes,
+    eval_episodes=EVAL_EPISODES,
+    solved_at=solved_at,
+    hyperparameters=run_hyperparameters,
+    eval_stats=eval_stats,
 )
 print(f"Run stats appended to: {STATS_PATH}")
 print(f"Total run time: {format_duration(elapsed_seconds)}")
