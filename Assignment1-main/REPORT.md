@@ -98,3 +98,60 @@ You can also expand this file later with:
 - Part B implementation notes
 - Part C training and evaluation observations
 - Part D experiment comparisons
+
+## Part D: Recommended Experiment Order
+
+Since your current baseline can solve the task around episode `610`, a good report-friendly order for experiments is:
+
+1. `EPSILON_DECAY`
+2. `TARGET_UPDATE_FREQ`
+3. `LEARNING_RATE`
+
+These are good first choices because:
+
+- they strongly affect learning behavior
+- they are easy to explain in the report
+- they usually produce visible differences in learning speed or stability
+
+### Suggested values to test
+
+| Hyperparameter | Baseline | Lower / Faster | Higher / Slower | Why test this first |
+| --- | --- | --- | --- | --- |
+| `EPSILON_DECAY` | `0.995` | `0.993` | `0.997` | Directly changes exploration speed and is usually easy to explain |
+| `TARGET_UPDATE_FREQ` | `10` | `5` | `20` | Helps study whether target updates are too frequent or too slow |
+| `LEARNING_RATE` | `5e-4` | `2.5e-4` | `1e-3` | Shows the tradeoff between slower stable learning and faster unstable learning |
+
+### What to look for
+
+#### `EPSILON_DECAY`
+
+- `0.993`: exploration decreases faster, so the agent may learn faster early but can get stuck sooner
+- `0.995`: current baseline reference
+- `0.997`: exploration lasts longer, so early learning may be slower but final performance can improve
+
+#### `TARGET_UPDATE_FREQ`
+
+- `5`: target updates more often, which may speed learning but also make it less stable
+- `10`: current baseline reference
+- `20`: target updates more slowly, which may be more stable but slower to improve
+
+#### `LEARNING_RATE`
+
+- `2.5e-4`: smaller updates, usually safer but slower
+- `5e-4`: current baseline reference
+- `1e-3`: larger updates, which may learn faster or become unstable
+
+### Suggested Part D workflow
+
+Start with `EPSILON_DECAY` first.
+
+Why:
+
+- it is the easiest to explain
+- it is closely tied to exploration vs exploitation
+- it often produces clear differences in the curves
+
+After that, move to:
+
+- `TARGET_UPDATE_FREQ`
+- then `LEARNING_RATE`
