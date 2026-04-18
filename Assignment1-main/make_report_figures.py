@@ -173,7 +173,7 @@ def make_comparison_figure(
     solve_rates = [summary[group]["solve_rate"] for group in group_order]
     y_positions = np.arange(len(group_order) - 1, -1, -1, dtype=float)
 
-    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    fig, ax = plt.subplots(figsize=(9.2, 4.9))
 
     min_reward = min(float(np.min(summary[group]["rewards"])) for group in group_order)
     max_reward = max(float(np.max(summary[group]["rewards"])) for group in group_order)
