@@ -23,14 +23,13 @@ BATCH_SIZE = 64
 BUFFER_SIZE = 10000
 TARGET_UPDATE_FREQ = 10  # Update target network every N episodes
 
-NUM_EPISODES = 550
+NUM_EPISODES = 650
 CHECKPOINT_FREQ = 50
 EVAL_EPISODES = 100
 HIDDEN_DIM = 128
 SUCCESS_REWARD_THRESHOLD = 200.0
 MAX_STEPS_PER_EPISODE = 500
-OUTPUT_DIR = "outputs/part_b"
-CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
+BASE_OUTPUT_DIR = "outputs/part_b"
 STATS_PATH = "stats.md"
 ALGORITHM_NAME = "Vanilla DQN"
 
@@ -206,6 +205,24 @@ def append_run_stats(
         )
 
 
+def get_next_run_dir(base_output_dir: str) -> str:
+    os.makedirs(base_output_dir, exist_ok=True)
+    run_numbers = []
+
+    for name in os.listdir(base_output_dir):
+        path = os.path.join(base_output_dir, name)
+        if name.startswith("run") and os.path.isdir(path):
+            suffix = name[3:]
+            if suffix.isdigit():
+                run_numbers.append(int(suffix))
+
+    next_run_number = max(run_numbers, default=0) + 1
+    return os.path.join(base_output_dir, f"run{next_run_number}")
+
+
+OUTPUT_DIR = get_next_run_dir(BASE_OUTPUT_DIR)
+CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
@@ -282,7 +299,7 @@ for episode in range(num_episodes):
             f"Epsilon: {epsilon:.3f}, Loss: {avg_loss:.4f}, Mean Max Q: {mean_q:.4f}"
         )
 
-# Testing
+# Testing using trained model for NUM_EPISODES times 
 # TODO: Test your trained agent
 final_checkpoint = os.path.join(CHECKPOINT_DIR, "dqn_final.pt")
 save_checkpoint(agent, num_episodes, rewards_history, final_checkpoint)
@@ -333,7 +350,7 @@ eval_stats = {
 }
 
 print()
-print("Evaluation over 100 no-exploration episodes")
+print("Evaluation over 100 no-exploration(learned policy) episodes") # testing the learned policy 
 print_stats(eval_stats)
 print(f"Final checkpoint saved to: {final_checkpoint}")
 
@@ -351,5 +368,6 @@ append_run_stats(
 )
 print(f"Run stats appended to: {STATS_PATH}")
 print(f"Total run time: {format_duration(elapsed_seconds)}")
+print(f"Run outputs saved to: {OUTPUT_DIR}")
 
 env.close()
