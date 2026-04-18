@@ -2,12 +2,16 @@
 
 ## Goal
 
-Part B is where you build the actual learning agent.
+Part B is where you implement the actual learning agent.
 
-Unlike Part A, the agent should no longer act randomly all the time.
-It should begin learning from experience and improve over episodes.
+In Part A, the lander acted randomly.
+In Part B, the lander should begin learning from experience by using **Vanilla DQN**.
 
-For this assignment, the most natural Part B solution is a **DQN agent**.
+This part is mainly about:
+
+- building the DQN pieces correctly
+- making the training loop stable enough to run
+- avoiding common bugs that waste time later
 
 ## What You Need To Deliver
 
@@ -15,72 +19,69 @@ By the end of Part B, you should have:
 
 - a Q-network
 - a replay buffer
-- an agent class or equivalent logic
+- a DQN agent
 - epsilon-greedy action selection
 - a target network
-- a training loop that runs for at least `500` episodes
-- saved checkpoints
+- a working training loop
+- checkpoints saved during training
 
 ## Big Idea Of Part B
 
-The DQN agent learns from transitions:
+The agent learns from transitions:
 
 ```text
 (state, action, reward, next_state, done)
 ```
 
-Each time the agent interacts with the environment:
+Each step of training should follow this pattern:
 
-1. it chooses an action
-2. it gets the next state and reward
-3. it stores that experience
-4. it later trains on a random batch of stored experiences
+1. observe the current state
+2. choose an action
+3. step the environment
+4. store the transition
+5. sample old experiences from replay memory
+6. update the Q-network
 
-This is much more stable than learning only from the most recent step.
+The goal is not to hard-code a landing policy.
+The goal is to let the network learn which actions lead to better long-term reward.
 
-## Step 1: Decide The Core Structure
+## Step 1: Keep The Main Structure Simple
 
-Your `main.py` should eventually have these pieces:
+Your `main.py` should still look like the starter file:
 
-- environment setup
-- Q-network class
-- replay buffer class
-- agent class
+- imports
+- hyperparameters
+- environment creation
+- classes for the agent
 - training loop
-- evaluation code
+- testing / evaluation section
 
-You do not need a perfect architecture.
-You do need a clean one.
+That keeps the assignment readable and easier to explain.
 
 ## Step 2: Build The Q-Network
 
-The Q-network takes the current state as input and predicts one Q-value for each action.
+The Q-network is the neural network that estimates:
 
-### Input
+```text
+Q(state, action)
+```
 
-- state vector of size `8`
+That means:
 
-### Output
-
-- one Q-value for each of the `4` actions
+- input: one state vector of size `8`
+- output: one Q-value for each of the `4` actions
 
 ### Simple architecture
 
-A good beginner architecture is:
+A clean default architecture is:
 
 ```text
-8 -> hidden layer -> hidden layer -> 4
+8 -> 128 -> 128 -> 4
 ```
 
-Example:
+with `ReLU` activations between layers.
 
-- Linear(8, 128)
-- ReLU
-- Linear(128, 128)
-- ReLU
-- Linear(128, 4)
-
-### What it means
+### What the output means
 
 If the network outputs:
 
@@ -88,13 +89,11 @@ If the network outputs:
 [-1.3, 0.2, 1.8, 0.5]
 ```
 
-then action `2` is currently considered best.
+then action `2` is the highest-valued action according to the current model.
 
 ## Step 3: Build The Replay Buffer
 
-The replay buffer stores past transitions.
-
-Each stored item should contain:
+The replay buffer stores old transitions:
 
 - `state`
 - `action`
@@ -102,114 +101,112 @@ Each stored item should contain:
 - `next_state`
 - `done`
 
-### What the buffer should do
+### Why replay is important
 
-- `push(...)`: store a transition
-- `sample(batch_size)`: return a random minibatch
-- `__len__()`: return current size
+If the agent only learns from the newest step, the data is too correlated.
 
-### Why it matters
+Replay helps by:
 
-Without replay, consecutive samples are too similar.
-That makes neural network training unstable.
+- mixing old and new experiences
+- stabilizing neural network training
+- improving sample efficiency
 
-## Step 4: Create The Agent
+### Minimum replay buffer methods
 
-Your agent should hold:
+- `push(...)`
+- `sample(batch_size)`
+- `__len__()`
+
+## Step 4: Create The DQN Agent
+
+The agent should contain:
 
 - `q_network`
 - `target_network`
 - `optimizer`
+- `loss_fn`
 - `replay_buffer`
-- `gamma`
-- `batch_size`
 
 The agent should also provide methods like:
 
 - `select_action(state, epsilon)`
+- `greedy_action(state)`
 - `store_transition(...)`
 - `train_step()`
 - `update_target_network()`
 
-You can use different method names if you want, but the responsibilities should stay clear.
+## Step 5: Use Epsilon-Greedy Action Selection
 
-## Step 5: Implement Epsilon-Greedy Action Selection
+The agent must balance:
 
-This is how the agent balances exploration and exploitation.
+- exploration
+- exploitation
 
 ### Rule
 
 - with probability `epsilon`, choose a random action
-- otherwise, choose the action with the highest predicted Q-value
-
-### Pseudocode
-
-```python
-if random.random() < epsilon:
-    action = env.action_space.sample()
-else:
-    action = argmax(Q(state))
-```
+- otherwise, choose the greedy action from the Q-network
 
 ### Why this matters
 
-Early in training:
+At the beginning:
 
-- high epsilon
-- more exploration
+- the network knows almost nothing
+- exploration is necessary
 
-Later in training:
+Later:
 
-- lower epsilon
-- more exploitation of learned behavior
+- the network should rely more on what it has learned
 
-## Step 6: Create The Target Network
+That is why epsilon usually starts near `1.0` and decays over time.
 
-This is a second copy of the Q-network.
+## Step 6: Add The Target Network
 
-### Important rule
+The target network is a delayed copy of the online Q-network.
 
-- the online network is updated often
-- the target network is updated only sometimes
+### Why it matters
 
-### Why this matters
+If the online network is used both:
 
-If the same network is used to both predict and define the target every time, learning can become unstable.
+- to predict current Q-values
+- and to define target Q-values
 
-So the target network gives a more stable reference.
+then learning can become unstable.
 
-### Common approach
+The target network reduces that instability by changing more slowly.
 
-Every `N` episodes:
+### Common pattern
+
+Every few episodes:
 
 ```python
 target_network.load_state_dict(q_network.state_dict())
 ```
 
-## Step 7: Implement The Training Step
+## Step 7: Implement The DQN Training Step
 
-This is the most important part of Part B.
+This is the core update rule.
 
 ### Before training
 
-Only train if the replay buffer has enough samples:
+Do not train until the replay buffer has enough samples:
 
 ```python
 if len(replay_buffer) < batch_size:
     return
 ```
 
-### Training flow
+### Main training flow
 
-1. sample a minibatch from replay memory
-2. convert the batch to tensors
-3. compute current Q-values for the chosen actions
-4. compute target Q-values using the target network
-5. compute the loss
+1. sample a minibatch
+2. convert arrays to tensors
+3. compute the current Q-value for the chosen action
+4. compute the target Q-value
+5. compute loss
 6. backpropagate
-7. update the online Q-network
+7. update the online network
 
-### DQN target
+### Standard DQN target
 
 For non-terminal transitions:
 
@@ -223,79 +220,140 @@ For terminal transitions:
 target = reward
 ```
 
-### Loss
+### Recommended loss
 
-A practical default is:
+Use:
 
-- `nn.SmoothL1Loss()` also called Huber loss
+- `nn.SmoothL1Loss()`
 
-It is commonly used in DQN because it is usually more stable than plain MSE.
+This is also called Huber loss and is a common default for DQN.
 
 ## Step 8: Build The Training Loop
 
-The loop in `main.py` should eventually do this:
+The training loop should:
 
 1. reset the environment
 2. choose actions using epsilon-greedy
 3. step the environment
-4. store transitions in replay memory
-5. call `train_step()`
+4. store transitions
+5. run `train_step()`
 6. accumulate episode reward
-7. end the episode when `terminated or truncated`
-8. decay epsilon after the episode
-9. save statistics
-10. periodically update the target network
+7. stop when the episode ends
+8. decay epsilon
+9. update the target network periodically
+10. save metrics and checkpoints
 
-### What to track each episode
+Track at least:
 
-- total reward
+- episode reward
 - average loss
 - epsilon
-- average Q-value
+- mean Q-value
 
-These tracked values will be used in Part C for plots.
+## Step 9: Solve The Long-Episode Hover Problem
 
-## Step 9: Save Checkpoints
+This is one of the most practical problems in Part B.
 
-You already have a helper in `utils.py`:
+### What you observed
 
-- `save_checkpoint(agent, episode, rewards, filename)`
+Sometimes after many episodes, the lander does not crash or land quickly.
+Instead, it:
 
-Use it every `50` to `100` episodes.
+- drifts in the air
+- hovers badly
+- keeps flying for a long time
+
+This makes one episode take much longer than the others.
+
+### Why this happens
+
+This usually means the agent has learned a **partial policy**:
+
+- it avoids immediate crashing
+- but it has not learned to finish the landing
+
+So it survives without solving the task.
+
+This is not unusual in reinforcement learning.
+It means the policy is learning something, but not enough yet.
+
+### Why it slows training
+
+The training loop only moves to the next episode after the current one ends.
+
+So if one episode drags on too long, then:
+
+- training progress slows down
+- one bad hover policy wastes time
+
+### Practical solution
+
+Use a manual episode step cap.
+
+Example:
+
+```python
+MAX_STEPS_PER_EPISODE = 500
+```
+
+Then inside the loop:
+
+```python
+episode_steps += 1
+if episode_steps >= MAX_STEPS_PER_EPISODE:
+    done = True
+```
+
+### Why this is a good fix
+
+- it prevents one episode from taking too long
+- it makes training time more predictable
+- it keeps the code simple
+- it is practical for assignments and experiments
+
+### Important note
+
+If you use a custom step cap in training, use the same idea in evaluation too, so comparisons stay fair.
+
+## Step 10: Save Checkpoints
+
+Save checkpoints every `50` to `100` episodes.
 
 Why:
 
-- training can take time
-- experiments can crash
-- you may want to resume later
+- training takes time
+- runs may crash
+- you may want to compare runs later
 
-## Step 10: Minimum Working Version First
+This is also useful for Part C and Part D.
 
-Do not try to build an advanced DQN immediately.
+## Step 11: What A Good First Version Looks Like
 
-Your first working Part B version should only aim for:
+A good first Part B implementation does **not** need to be fancy.
 
-- correct environment interaction
-- correct replay buffer usage
-- correct Q-learning update
-- correct target network sync
-- correct epsilon decay
+It should simply be:
 
-After that, you can improve things.
+- correct
+- readable
+- stable enough to train
 
-## Suggested Order For Coding Part B
+You do not need advanced DQN improvements yet.
+Vanilla DQN is enough for a good first implementation.
+
+## Suggested Coding Order
 
 Follow this order:
 
-1. create the Q-network class
-2. create the replay buffer class
-3. create the agent class
-4. implement `select_action`
-5. implement `train_step`
-6. copy weights into the target network once at initialization
-7. complete the training loop
-8. add metric tracking
-9. add checkpoint saving
+1. Q-network
+2. replay buffer
+3. agent class
+4. epsilon-greedy action selection
+5. training step
+6. target network update
+7. training loop
+8. manual episode step cap
+9. checkpoints
+10. metric tracking
 
 ## Common Mistakes In Part B
 
@@ -306,49 +364,47 @@ Follow this order:
 
 ### Tensor mistakes
 
-- wrong tensor shapes
-- wrong tensor dtypes
-- not adding batch dimensions when needed
-- forgetting to move from NumPy arrays to tensors
+- wrong tensor shape in `gather`
+- wrong dtype for actions
+- forgetting batch dimensions
+- forgetting to convert NumPy arrays to tensors
 
 ### DQN mistakes
 
-- training before the replay buffer is large enough
-- forgetting to gather the Q-value of the chosen action
-- computing targets with the wrong network
-- not masking terminal states
-- forgetting to detach target values from gradient flow
-- updating the target network too often or never
+- training before replay memory is ready
+- using the wrong network for targets
+- not handling terminal states correctly
+- forgetting target-network updates
+- epsilon not decaying
 
-### Training loop mistakes
+### Training-loop mistakes
 
-- not decaying epsilon
-- not tracking rewards
-- overwriting values incorrectly
+- not tracking episode reward
 - not saving checkpoints
+- not capping very long episodes
+- assuming long survival always means good learning
 
 ## Definition Of Done
 
 Part B is done when all of these are true:
 
-- [ ] the Q-network runs on a state input
+- [ ] the Q-network runs correctly
 - [ ] the replay buffer stores and samples transitions
 - [ ] the agent can choose actions with epsilon-greedy
-- [ ] the training step computes targets and loss correctly
+- [ ] the training step computes Q-targets and loss correctly
 - [ ] the target network updates periodically
-- [ ] the training loop runs for at least `500` episodes
-- [ ] checkpoints are saved during training
-- [ ] `main.py` is ready to generate metrics for Part C
+- [ ] the training loop runs end to end
+- [ ] checkpoints are saved
+- [ ] very long hover/drift episodes are capped
+- [ ] Part C metrics can be collected from the run
 
 ## What Comes After Part B
 
-After Part B, Part C will focus on:
+After Part B, Part C is about:
 
-- plotting reward curves
-- monitoring loss
-- monitoring epsilon
-- monitoring Q-values
-- evaluating the trained policy
+- plotting reward, loss, epsilon, and Q-values
+- evaluating the learned policy
+- comparing results to the random baseline
 - recording learned-agent behavior
 
 Part B is where the agent learns.
