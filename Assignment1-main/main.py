@@ -58,6 +58,12 @@ parser.add_argument(
     default=MAX_STEPS_PER_EPISODE,
     help="Override manual per-episode step cap.",
 )
+parser.add_argument(
+    "--seed",
+    type=int,
+    default=None,
+    help="Optional fixed random seed for reproducibility. Leave unset to use random entropy.",
+)
 args = parser.parse_args()
 
 if args.device == "cpu":
@@ -75,14 +81,33 @@ TARGET_UPDATE_FREQ = args.target_update_freq
 BATCH_SIZE = args.batch_size
 NUM_EPISODES = args.num_episodes
 MAX_STEPS_PER_EPISODE = args.max_steps_per_episode
+SEED = args.seed
+
+
+def set_global_seed(seed: int | None) -> str:
+    if seed is None:
+        return "random"
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    return str(seed)
 
 # Create environment
 env = gym.make('LunarLander-v3')
+SEED_LABEL = set_global_seed(SEED)
+if SEED is not None:
+    env.reset(seed=SEED)
+    env.action_space.seed(SEED)
+    env.observation_space.seed(SEED)
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 
 print(f"Requested device mode: {args.device}")
 print(f"Using device: {DEVICE}")
+print(f"Seed: {SEED_LABEL}")
 print(f"State dimension: {state_dim}")
 print(f"Action dimension: {action_dim}")
 
@@ -200,6 +225,7 @@ def append_run_stats(
     stats_path: str,
     run_name: str,
     algorithm_name: str,
+    seed_label: str,
     num_episodes: int,
     eval_episodes: int,
     requested_device: str,
@@ -214,14 +240,14 @@ def append_run_stats(
     run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     header = (
         "# Run Stats\n\n"
-        "Each completed `main.py` training run appends one row here.\n\n"
-        "| Run Time | Run | Algorithm | Train Episodes | Eval Episodes | "
+        "Each completed training run appends one row here.\n\n"
+        "| Run Time | Run | Algorithm | Seed | Train Episodes | Eval Episodes | "
         "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward | "
         "LR | Epsilon Decay | Target Update |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
     )
     row = (
-        f"| {run_time} | {run_name} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
+        f"| {run_time} | {run_name} | {algorithm_name} | {seed_label} | {num_episodes} | {eval_episodes} | "
         f"{requested_device} | {actual_device} | {duration_text} | "
         f"{solved_value} | {eval_mean_reward:.2f} | "
         f"{hyperparameters['learning_rate']} | {hyperparameters['epsilon_decay']} | "
@@ -267,6 +293,7 @@ def write_run_summary(
     run_dir: str,
     run_name: str,
     algorithm_name: str,
+    seed_label: str,
     requested_device: str,
     actual_device: str,
     elapsed_seconds: float,
@@ -283,6 +310,7 @@ def write_run_summary(
         f.write(f"# {run_name} Summary\n\n")
         f.write("## Run Info\n\n")
         f.write(f"- Algorithm: {algorithm_name}\n")
+        f.write(f"- Seed: {seed_label}\n")
         f.write(f"- Requested device: {requested_device}\n")
         f.write(f"- Actual device: {actual_device}\n")
         f.write(f"- Train episodes: {num_episodes}\n")
@@ -317,6 +345,7 @@ agent = DQNAgent(state_dim, action_dim)
 run_start_time = time.perf_counter()
 
 run_hyperparameters = {
+    "seed": SEED_LABEL,
     "learning_rate": LEARNING_RATE,
     "gamma": GAMMA,
     "epsilon_start": EPSILON_START,
@@ -342,7 +371,8 @@ mean_q_values = []
 solved_at = None
 
 for episode in range(num_episodes):
-    state, _ = env.reset()  # start a episode
+    episode_seed = SEED + episode if SEED is not None else None
+    state, _ = env.reset(seed=episode_seed)  # start a episode
     episode_reward = 0.0
     done = False
     episode_steps = 0
@@ -420,8 +450,9 @@ test_rewards = []
 test_lengths = []
 test_successes = 0
 
-for _ in range(EVAL_EPISODES):
-    state, _ = env.reset()
+for eval_episode in range(EVAL_EPISODES):
+    eval_seed = SEED + 10_000 + eval_episode if SEED is not None else None
+    state, _ = env.reset(seed=eval_seed)
     done = False
     episode_reward = 0.0
     episode_length = 0
@@ -462,6 +493,7 @@ append_run_stats(
     stats_path=STATS_PATH,
     run_name=RUN_NAME,
     algorithm_name=ALGORITHM_NAME,
+    seed_label=SEED_LABEL,
     num_episodes=num_episodes,
     eval_episodes=EVAL_EPISODES,
     requested_device=args.device,
@@ -475,6 +507,7 @@ write_run_summary(
     run_dir=OUTPUT_DIR,
     run_name=RUN_NAME,
     algorithm_name=ALGORITHM_NAME,
+    seed_label=SEED_LABEL,
     requested_device=args.device,
     actual_device=str(DEVICE),
     elapsed_seconds=elapsed_seconds,

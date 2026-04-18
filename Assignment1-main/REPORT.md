@@ -288,3 +288,51 @@ These interpretations should still be presented carefully because DQN has high v
 A useful limitation statement is:
 
 > Because DQN training is stochastic, repeated runs with different random seeds would provide a more stable estimate of each hyperparameter setting. Due to time constraints, the experiments were first compared using single runs, so some of the observed differences may partly reflect randomness.
+
+## Controlled Comparison With Seeds
+
+### Why fixed seeds help this assignment
+
+The assignment encourages controlled comparison rather than anecdotal claims from a single run. For that reason, using a small fixed set of seeds across all compared configurations is a better design than letting each run use uncontrolled randomness.
+
+The main benefit is that it makes the comparison fairer:
+
+- each configuration sees the same set of seeded training conditions
+- results are reproducible
+- differences are more likely to reflect the hyperparameter change instead of pure luck
+
+### How seeds should be used
+
+Seeds should be used as a control variable, not as a hyperparameter to optimize.
+
+That means:
+
+- choose the seed set before looking at results
+- use the same seeds for every compared configuration
+- average the results across those seeds
+- do not search for "good" seeds
+- do not pick only lucky runs for reporting
+
+A strong report sentence is:
+
+> Random seed was used for reproducibility and controlled comparison only. It was not treated as a tunable hyperparameter, and model-selection decisions were not based on finding favorable seeds.
+
+### Why the earlier runs are weaker evidence
+
+The earlier runs in `stats.md` are now marked with `Seed = random`. That means those runs were useful for exploration, but they do not form a strict controlled-comparison set because they used uncontrolled randomness.
+
+Therefore, for the final hyperparameter comparison, it is more rigorous to restart the experiment matrix using a fixed seed set such as three predetermined seeds.
+
+### Recommended seeded experiment design
+
+A practical setup for this homework is:
+
+- choose three fixed seeds, for example `101`, `202`, and `303`
+- run every compared configuration on all three seeds
+- compare the mean performance across those three runs
+
+This keeps the experiment manageable while giving stronger evidence than a single run.
+
+### Suggested wording for the final report
+
+> To avoid anecdotal conclusions from a single run, each configuration was evaluated over three fixed random seeds. The seeds were used only for reproducibility and controlled comparison, not as tunable hyperparameters. Final comparisons were based on average performance across the same seed set for all configurations.
