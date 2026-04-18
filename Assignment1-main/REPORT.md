@@ -155,3 +155,136 @@ After that, move to:
 
 - `TARGET_UPDATE_FREQ`
 - then `LEARNING_RATE`
+
+## Part C: Good Analysis Ideas To Reuse
+
+### Solved criterion vs evaluation result
+
+The assignment defines the environment as solved when the average reward over the last `100` training episodes is greater than `200`. This is different from the final evaluation over `100` no-exploration episodes. These two measurements are related, but they are not exactly the same metric.
+
+This means a run can:
+
+- satisfy the training solved criterion at some point
+- but still have a lower final evaluation mean reward than another run
+
+This happened in the current experiments. For example:
+
+- `baseline` solved during training at episode `596`, but its final evaluation mean reward was `133.41`
+- `run2` solved during training at episode `610`, but its final evaluation mean reward was `217.21`
+
+This is a useful point to mention in the report because it shows that:
+
+- the solved criterion measures training progress over a sliding window
+- the final evaluation measures the greedy policy performance after training
+- different metrics do not always rank runs in the same order
+
+### Why identical settings can still give different results
+
+Even when the hyperparameters are identical, DQN training is still stochastic. This means two runs with the same settings can produce different rewards, different solved episodes, and different final evaluation scores.
+
+Sources of randomness include:
+
+- random initial neural network weights
+- random environment initial conditions
+- epsilon-greedy exploration
+- random replay buffer sampling
+- possible PyTorch and CUDA nondeterminism
+
+This can be seen in the current results:
+
+- `baseline` and `baseline2` used the same settings
+- `baseline` solved at episode `596` with evaluation mean reward `133.41`
+- `baseline2` solved at episode `618` with evaluation mean reward `182.46`
+
+This is a strong report point because it explains why repeated runs or multiple seeds would give a more stable comparison.
+
+### Why CPU was faster than GPU in this project
+
+In these experiments, CPU runs were faster than CUDA runs even though CUDA was available. This is not an error. It is reasonable for this assignment because:
+
+- the Q-network is small
+- the environment simulation is CPU-based
+- the code steps one environment at a time
+- GPU kernel launch and transfer overhead can dominate when batches are small
+
+This can be seen in the run log:
+
+- `run2` on CUDA took `00:25:21`
+- several CPU runs took around `00:14` to `00:23`
+
+A good report sentence is:
+
+> Although CUDA was available, CPU was often faster in this assignment because LunarLander simulation is CPU-bound and the DQN network is small, so the GPU overhead was not fully amortized.
+
+### Why long episodes happen
+
+During training, some agents learn a partial survival behavior where they avoid crashing but do not complete the landing. In that case, the lander may keep hovering or drifting in the sky, which makes one episode take a long time.
+
+This does not mean the agent is performing well. It often means the policy has learned an incomplete behavior:
+
+- it avoids immediate failure
+- but it has not yet learned how to finish the task efficiently
+
+Adding a manual step cap is a practical fix because it:
+
+- prevents extremely long episodes
+- keeps total runtime more predictable
+- avoids wasting training time on unproductive hovering behavior
+
+## Part D: Good Discussion Ideas
+
+### Hyperparameter changes do not guarantee improvement
+
+One important lesson from the experiments is that changing a hyperparameter does not automatically improve DQN performance. Some changes can make learning:
+
+- slower
+- less stable
+- more sensitive to randomness
+
+That is why a baseline configuration can remain competitive or even outperform some tuned variants.
+
+### A baseline being strong is not a bad result
+
+If the baseline performs as well as or better than several variations, that is still a meaningful result. It suggests the default setting was already a reasonable balance between:
+
+- exploration
+- learning speed
+- target-network stability
+
+A good report sentence is:
+
+> The baseline configuration remained competitive, and some hyperparameter changes reduced performance rather than improving it. This suggests the default settings were already a reasonable tradeoff between exploration, stability, and learning speed.
+
+### Different metrics may disagree about which run is best
+
+When comparing runs, it is important to state which metric is being used:
+
+- earliest `solved_at`
+- highest final evaluation mean reward
+- highest success rate
+- shortest runtime
+
+For example, one run may solve the environment slightly earlier during training, while another run may achieve a better final evaluation score. This means there is not always a single "best" run unless the comparison metric is clearly defined.
+
+### Current experimental interpretation
+
+Based on the runs completed so far:
+
+- `run2` achieved the strongest final evaluation mean reward among the shown solved runs: `217.21`
+- `baseline` solved slightly earlier than `run2`, but its final evaluation score was much lower
+- `eps993` and `target5` were close to the `200` evaluation region but did not solve under the training criterion in the shown runs
+- `eps997`, `target20`, and `lr2p5e4` were weaker in the current results
+
+This suggests that:
+
+- the original `EPSILON_DECAY = 0.995` was already a reasonable choice
+- slowing target updates to `20` hurt performance in the current run
+- decreasing the learning rate to `2.5e-4` may have made learning too slow for `650` episodes
+
+These interpretations should still be presented carefully because DQN has high variance, and repeated runs could shift the ranking.
+
+### Limitation to mention in the report
+
+A useful limitation statement is:
+
+> Because DQN training is stochastic, repeated runs with different random seeds would provide a more stable estimate of each hyperparameter setting. Due to time constraints, the experiments were first compared using single runs, so some of the observed differences may partly reflect randomness.
