@@ -1,3 +1,5 @@
+import argparse
+from datetime import datetime
 import os
 import gymnasium as gym
 import numpy as np
@@ -6,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 import random
+import time
 import matplotlib.pyplot as plt
 
 from utils import plot_training_curves, print_stats, save_checkpoint
@@ -20,20 +23,41 @@ BATCH_SIZE = 64
 BUFFER_SIZE = 10000
 TARGET_UPDATE_FREQ = 10  # Update target network every N episodes
 
-NUM_EPISODES = 1000
-CHECKPOINT_FREQ = 100
+NUM_EPISODES = 550
+CHECKPOINT_FREQ = 50
 EVAL_EPISODES = 100
 HIDDEN_DIM = 128
 SUCCESS_REWARD_THRESHOLD = 200.0
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-OUTPUT_DIR = "outputs/part_b_c"
+MAX_STEPS_PER_EPISODE = 500
+OUTPUT_DIR = "outputs/part_b"
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
+STATS_PATH = "stats.md"
+ALGORITHM_NAME = "Vanilla DQN"
+
+parser = argparse.ArgumentParser(description="Train a Vanilla DQN on LunarLander-v3")
+parser.add_argument(
+    "--device",
+    choices=["auto", "cpu", "cuda"],
+    default="auto",
+    help="Choose which device to use for PyTorch computations.",
+)
+args = parser.parse_args()
+
+if args.device == "cpu":
+    DEVICE = torch.device("cpu")
+elif args.device == "cuda":
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested, but no CUDA device is available.")
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Create environment
 env = gym.make('LunarLander-v3')
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 
+print(f"Requested device mode: {args.device}")
 print(f"Using device: {DEVICE}")
 print(f"State dimension: {state_dim}")
 print(f"Action dimension: {action_dim}")
@@ -140,10 +164,53 @@ class DQNAgent:
         self.target_network.load_state_dict(self.q_network.state_dict())
 
 
+def format_duration(seconds: float) -> str:
+    total_seconds = int(round(seconds))
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def append_run_stats(
+    stats_path: str,
+    algorithm_name: str,
+    num_episodes: int,
+    eval_episodes: int,
+    requested_device: str,
+    actual_device: str,
+    elapsed_seconds: float,
+    solved_at,
+    eval_mean_reward: float,
+) -> None:
+    if not os.path.exists(stats_path):
+        with open(stats_path, "w", encoding="utf-8") as f:
+            f.write("# Run Stats\n\n")
+            f.write(
+                "| Run Time | Algorithm | Train Episodes | Eval Episodes | "
+                "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward |\n"
+            )
+            f.write(
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+            )
+
+    solved_value = solved_at if solved_at is not None else "Not solved"
+    duration_text = format_duration(elapsed_seconds)
+    run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with open(stats_path, "a", encoding="utf-8") as f:
+        f.write(
+            f"| {run_time} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
+            f"{requested_device} | {actual_device} | {duration_text} | "
+            f"{solved_value} | {eval_mean_reward:.2f} |\n"
+        )
+
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 agent = DQNAgent(state_dim, action_dim)
+run_start_time = time.perf_counter()
 
 # Training loop
 num_episodes = NUM_EPISODES
@@ -158,6 +225,7 @@ for episode in range(num_episodes):
     state, _ = env.reset()  # start a episode
     episode_reward = 0.0
     done = False
+    episode_steps = 0
     episode_losses = []
     episode_qs = []
 
@@ -178,6 +246,11 @@ for episode in range(num_episodes):
 
         episode_reward += reward
         state = next_state
+        episode_steps += 1
+
+        # Stop overly long hover/drift episodes so training does not stall on one bad policy.
+        if episode_steps >= MAX_STEPS_PER_EPISODE:
+            done = True
 
     if (episode + 1) % TARGET_UPDATE_FREQ == 0:
         agent.update_target_network()
@@ -201,7 +274,7 @@ for episode in range(num_episodes):
         checkpoint_path = os.path.join(CHECKPOINT_DIR, f"dqn_episode_{episode + 1}.pt")
         save_checkpoint(agent, episode + 1, rewards_history, checkpoint_path)
 
-    if episode % 50 == 0:
+    if episode % 10 == 0: # print every 10 episode
         avg_loss = avg_losses[-1]
         mean_q = mean_q_values[-1]
         print(
@@ -242,6 +315,9 @@ for _ in range(EVAL_EPISODES):
         episode_length += 1
         state = next_state
 
+        if episode_length >= MAX_STEPS_PER_EPISODE:
+            done = True
+
     test_rewards.append(episode_reward)
     test_lengths.append(episode_length)
     if episode_reward >= SUCCESS_REWARD_THRESHOLD:
@@ -260,5 +336,20 @@ print()
 print("Evaluation over 100 no-exploration episodes")
 print_stats(eval_stats)
 print(f"Final checkpoint saved to: {final_checkpoint}")
+
+elapsed_seconds = time.perf_counter() - run_start_time
+append_run_stats(
+    stats_path=STATS_PATH,
+    algorithm_name=ALGORITHM_NAME,
+    num_episodes=num_episodes,
+    eval_episodes=EVAL_EPISODES,
+    requested_device=args.device,
+    actual_device=str(DEVICE),
+    elapsed_seconds=elapsed_seconds,
+    solved_at=solved_at,
+    eval_mean_reward=eval_stats["mean_reward"],
+)
+print(f"Run stats appended to: {STATS_PATH}")
+print(f"Total run time: {format_duration(elapsed_seconds)}")
 
 env.close()
