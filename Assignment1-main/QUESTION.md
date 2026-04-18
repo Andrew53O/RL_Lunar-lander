@@ -336,3 +336,50 @@ the answer is:
 because the required threshold is:
 
 - average reward `> 200` over `100` consecutive episodes
+
+### Q1.8 What does `success_rate` mean in `run_summary.md`?
+
+`success_rate` means:
+
+- out of the `100` evaluation episodes
+- how many episodes had total reward at least `200`
+- divided by the total number of evaluation episodes
+
+In `main.py`, the evaluation phase checks:
+
+```python
+if episode_reward >= SUCCESS_REWARD_THRESHOLD:
+    test_successes += 1
+```
+
+Then the final value is computed as:
+
+```python
+success_rate = test_successes / EVAL_EPISODES
+```
+
+So if `EVAL_EPISODES = 100` and `success_rate = 37.0%`, that means:
+
+- `37` evaluation episodes reached reward `>= 200`
+- `63` evaluation episodes did not
+
+This is a useful metric because it shows how often the learned policy produces a strong episode, not just the average reward.
+
+### Important detail
+
+`success_rate` is **not** the same thing as the assignment's solved criterion.
+
+- `success_rate` asks: how many final evaluation episodes scored at least `200`?
+- the solved criterion asks: was the average reward over `100` consecutive training episodes greater than `200`?
+
+So a run can have:
+
+- a nonzero `success_rate`
+- but still not be considered solved
+
+That is why `run_summary.md` reports both:
+
+- `Solved at`
+- `success_rate`
+
+because they measure different things.

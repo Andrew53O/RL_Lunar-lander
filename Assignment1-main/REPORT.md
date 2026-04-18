@@ -44,6 +44,48 @@ The table below summarizes the seeded `main.py` runs that were complete at the t
 | `LEARNING_RATE = 2.5e-4` | `3/3` | `196.84` | `1/3` | Stable but slower than expected |
 | `LEARNING_RATE = 1e-3` | `2/3` complete | `146.12` on completed runs | `0/2` on completed runs | Appears unstable, but incomplete |
 
+## Averaged Three-Seed Comparison Tables
+
+These tables aggregate the seeded `main.py` runs by averaging the three evaluation runs for each setting. The averages help reduce anecdotal conclusions from any single lucky or unlucky seed.
+
+### Epsilon Decay Table
+
+This table compares how changing the exploration decay rate affected final evaluation reward, variability, episode length, solve frequency, and how often the agent crossed the training solved criterion.
+
+| Setting | Seeds | Avg Reward | Avg Std Reward | Avg Length | Avg Success Rate | Solved Runs | Avg Solved Episode* |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0.993` | `101, 202, 303` | `204.35` | `75.69` | `319.9` | `67.0%` | `3/3` | `617.0` |
+| `0.995 (baseline)` | `101, 202, 303` | `198.48` | `86.17` | `308.9` | `62.3%` | `2/3` | `627.5` |
+| `0.997` | `101, 202, 303` | `157.78` | `71.03` | `416.0` | `36.7%` | `0/3` | `Not solved` |
+
+The main pattern is that `0.993` slightly improved average reward over the baseline, while `0.997` clearly hurt both solve rate and final performance. The much longer average episode length for `0.997` is also consistent with the agent spending more time drifting or hovering instead of finishing the landing.
+
+### Target Update Table
+
+This table shows how often the target network should be refreshed. It highlights one of the clearest differences in the whole experiment set.
+
+| Setting | Seeds | Avg Reward | Avg Std Reward | Avg Length | Avg Success Rate | Solved Runs | Avg Solved Episode* |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `5` | `101, 202, 303` | `203.29` | `99.64` | `237.0` | `69.3%` | `3/3` | `535.0` |
+| `10 (baseline)` | `101, 202, 303` | `198.48` | `86.17` | `308.9` | `62.3%` | `2/3` | `627.5` |
+| `20` | `101, 202, 303` | `149.57` | `85.31` | `390.9` | `40.0%` | `0/3` | `Not solved` |
+
+The best setting here was `5`, which solved all three seeds and reached the solved threshold earlier than the baseline on average. By contrast, `20` performed poorly on every seed, suggesting that targets became too stale when they were updated too rarely.
+
+### Learning Rate Table
+
+This table compares how the optimizer step size affected the final policy quality.
+
+| Setting | Seeds | Avg Reward | Avg Std Reward | Avg Length | Avg Success Rate | Solved Runs | Avg Solved Episode* |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0.00025` | `101, 202, 303` | `196.84` | `78.11` | `316.1` | `67.0%` | `1/3` | `608.0` |
+| `0.0005 (baseline)` | `101, 202, 303` | `198.48` | `86.17` | `308.9` | `62.3%` | `2/3` | `627.5` |
+| `0.001` | `101, 202, 303` | `104.78` | `143.00` | `262.3` | `35.0%` | `0/3` | `Not solved` |
+
+The baseline learning rate `0.0005` remained the best overall choice in this group. Lowering it to `0.00025` kept performance fairly close, but raising it to `0.001` caused a major drop in reward and a large increase in reward variability, which is consistent with unstable updates.
+
+`*` Average solved episode is computed only over runs that actually solved during training.
+
 ## Effect of Epsilon Decay on Learning Speed Versus Final Performance
 
 `EPSILON_DECAY` controlled how quickly the agent reduced exploration.
