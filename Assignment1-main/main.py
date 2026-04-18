@@ -1,5 +1,6 @@
 import argparse
 from datetime import datetime
+import fcntl
 import os
 import gymnasium as gym
 import numpy as np
@@ -40,6 +41,23 @@ parser.add_argument(
     default="auto",
     help="Choose which device to use for PyTorch computations.",
 )
+parser.add_argument("--run-name", type=str, default=None, help="Optional explicit run folder name.")
+parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE, help="Override learning rate.")
+parser.add_argument("--epsilon-decay", type=float, default=EPSILON_DECAY, help="Override epsilon decay.")
+parser.add_argument(
+    "--target-update-freq",
+    type=int,
+    default=TARGET_UPDATE_FREQ,
+    help="Override target network update frequency.",
+)
+parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Override batch size.")
+parser.add_argument("--num-episodes", type=int, default=NUM_EPISODES, help="Override number of episodes.")
+parser.add_argument(
+    "--max-steps-per-episode",
+    type=int,
+    default=MAX_STEPS_PER_EPISODE,
+    help="Override manual per-episode step cap.",
+)
 args = parser.parse_args()
 
 if args.device == "cpu":
@@ -50,6 +68,13 @@ elif args.device == "cuda":
     DEVICE = torch.device("cuda")
 else:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+LEARNING_RATE = args.learning_rate
+EPSILON_DECAY = args.epsilon_decay
+TARGET_UPDATE_FREQ = args.target_update_freq
+BATCH_SIZE = args.batch_size
+NUM_EPISODES = args.num_episodes
+MAX_STEPS_PER_EPISODE = args.max_steps_per_episode
 
 # Create environment
 env = gym.make('LunarLander-v3')
@@ -184,45 +209,58 @@ def append_run_stats(
     eval_mean_reward: float,
     hyperparameters: dict,
 ) -> None:
-    if not os.path.exists(stats_path):
-        with open(stats_path, "w", encoding="utf-8") as f:
-            f.write("# Run Stats\n\n")
-            f.write(
-                "| Run Time | Run | Algorithm | Train Episodes | Eval Episodes | "
-                "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward | "
-                "LR | Epsilon Decay | Target Update |\n"
-            )
-            f.write(
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
-            )
-
     solved_value = solved_at if solved_at is not None else "Not solved"
     duration_text = format_duration(elapsed_seconds)
     run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    header = (
+        "# Run Stats\n\n"
+        "Each completed `main.py` training run appends one row here.\n\n"
+        "| Run Time | Run | Algorithm | Train Episodes | Eval Episodes | "
+        "Requested Device | Actual Device | Duration | Solved At | Eval Mean Reward | "
+        "LR | Epsilon Decay | Target Update |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+    )
+    row = (
+        f"| {run_time} | {run_name} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
+        f"{requested_device} | {actual_device} | {duration_text} | "
+        f"{solved_value} | {eval_mean_reward:.2f} | "
+        f"{hyperparameters['learning_rate']} | {hyperparameters['epsilon_decay']} | "
+        f"{hyperparameters['target_update_freq']} |\n"
+    )
 
-    with open(stats_path, "a", encoding="utf-8") as f:
-        f.write(
-            f"| {run_time} | {run_name} | {algorithm_name} | {num_episodes} | {eval_episodes} | "
-            f"{requested_device} | {actual_device} | {duration_text} | "
-            f"{solved_value} | {eval_mean_reward:.2f} | "
-            f"{hyperparameters['learning_rate']} | {hyperparameters['epsilon_decay']} | "
-            f"{hyperparameters['target_update_freq']} |\n"
-        )
+    with open(stats_path, "a+", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        f.seek(0)
+        content = f.read()
+        if "| Run Time | Run | Algorithm |" not in content:
+            f.seek(0, os.SEEK_END)
+            if content and not content.endswith("\n"):
+                f.write("\n")
+            if content:
+                f.write("\n")
+            f.write(header)
+        f.write(row)
+        f.flush()
+        os.fsync(f.fileno())
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
-def get_next_run_dir(base_output_dir: str) -> str:
+def get_run_dir(base_output_dir: str, requested_run_name: str | None = None) -> str:
     os.makedirs(base_output_dir, exist_ok=True)
-    run_numbers = []
 
-    for name in os.listdir(base_output_dir):
-        path = os.path.join(base_output_dir, name)
-        if name.startswith("run") and os.path.isdir(path):
-            suffix = name[3:]
-            if suffix.isdigit():
-                run_numbers.append(int(suffix))
+    if requested_run_name:
+        run_dir = os.path.join(base_output_dir, requested_run_name)
+        os.mkdir(run_dir)
+        return run_dir
 
-    next_run_number = max(run_numbers, default=0) + 1
-    return os.path.join(base_output_dir, f"run{next_run_number}")
+    run_number = 1
+    while True:
+        run_dir = os.path.join(base_output_dir, f"run{run_number}")
+        try:
+            os.mkdir(run_dir)
+            return run_dir
+        except FileExistsError:
+            run_number += 1
 
 
 def write_run_summary(
@@ -269,11 +307,10 @@ def write_run_summary(
         f.write(f"| success_rate | {eval_stats['success_rate'] * 100:.1f}% |\n")
 
 
-OUTPUT_DIR = get_next_run_dir(BASE_OUTPUT_DIR)
+OUTPUT_DIR = get_run_dir(BASE_OUTPUT_DIR, args.run_name)
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
 RUN_NAME = os.path.basename(OUTPUT_DIR)
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 agent = DQNAgent(state_dim, action_dim)
