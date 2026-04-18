@@ -1,24 +1,26 @@
-# baseline Summary
+# v_eps993_s101 Summary
 
 ## Run Info
 
 - Algorithm: Vanilla DQN
+- Seed: 101
 - Requested device: cpu
 - Actual device: cpu
 - Train episodes: 650
 - Evaluation episodes: 100
-- Duration: 00:14:55
-- Solved at: 596
+- Duration: 00:48:17
+- Solved at: 608
 
 ## Hyperparameters
 
 | Parameter | Value |
 | --- | --- |
+| seed | 101 |
 | learning_rate | 0.0005 |
 | gamma | 0.99 |
 | epsilon_start | 1.0 |
 | epsilon_end | 0.01 |
-| epsilon_decay | 0.995 |
+| epsilon_decay | 0.993 |
 | batch_size | 64 |
 | buffer_size | 10000 |
 | target_update_freq | 10 |
@@ -32,9 +34,9 @@
 
 | Metric | Value |
 | --- | --- |
-| mean_reward | 133.41 |
-| std_reward | 90.85 |
-| min_reward | -22.15 |
-| max_reward | 299.47 |
-| mean_length | 286.9 |
-| success_rate | 30.0% |
+| mean_reward | 198.31 |
+| std_reward | 71.88 |
+| min_reward | -5.25 |
+| max_reward | 295.20 |
+| mean_length | 331.1 |
+| success_rate | 66.0% |
