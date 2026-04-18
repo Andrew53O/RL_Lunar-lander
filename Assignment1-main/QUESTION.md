@@ -246,3 +246,93 @@ Reaching `200` normally requires:
 - efficient engine usage
 
 That is why `200` is a strong success threshold.
+
+### Q1.7 What does "average reward exceeds 200 over 100 consecutive episodes" mean, and is `172.52` solved?
+
+This means the environment is considered solved only if:
+
+- you have at least `100` training episodes
+- you take the **last 100 training rewards**
+- their average is greater than `200`
+
+In code, your current `main.py` checks this using logic like:
+
+```python
+if len(rewards_history) >= 100:
+    if np.mean(rewards_history[-100:]) > SUCCESS_REWARD_THRESHOLD:
+        solved_at = episode + 1
+```
+
+So this solved check is based on:
+
+- the most recent `100` training episodes
+- not one single episode
+- not only the final evaluation summary
+
+### What this means for your reported result
+
+You reported evaluation statistics like:
+
+```text
+Mean reward  : 172.52 ± 62.47
+Min / Max    : 15.91 / 290.24
+Mean length  : 430.0 steps
+Success rate : 37.0%
+```
+
+This is **not solved**.
+
+Why:
+
+- `172.52 < 200`
+- so the mean reward is below the solved threshold
+
+Also, the `37.0%` success rate does **not** override the solved rule.
+
+The assignment’s solved criterion is specifically about:
+
+- average reward over `100` consecutive episodes being greater than `200`
+
+not just:
+
+- whether some episodes were successful
+
+### Important distinction
+
+There are two related but different ideas:
+
+#### 1. Training solved criterion
+
+This is the assignment rule:
+
+- use the last `100` training episodes
+- check whether their average reward is greater than `200`
+
+If this happens, your code stores:
+
+- `solved_at = episode + 1`
+
+#### 2. No-exploration evaluation statistics
+
+At the end of training, your code also runs:
+
+- `100` evaluation episodes
+- using the greedy learned policy
+- with no random exploration
+
+Those evaluation numbers are useful for reporting final performance, but they are not exactly the same thing as the training solved check.
+
+### Final conclusion
+
+So for your result:
+
+- mean evaluation reward `172.52`
+- success rate `37.0%`
+
+the answer is:
+
+- **No, that is not solved**
+
+because the required threshold is:
+
+- average reward `> 200` over `100` consecutive episodes
